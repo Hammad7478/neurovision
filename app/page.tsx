@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 
 interface PredictionResult {
@@ -15,12 +15,46 @@ interface PredictionResult {
   gradcam_path?: string;
 }
 
+interface TrainingStatus {
+  modelExists: boolean;
+  isTraining: boolean;
+  progress: number;
+  message: string;
+  error: string | null;
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [trainingStatus, setTrainingStatus] = useState<TrainingStatus | null>(null);
+  const [checkingTraining, setCheckingTraining] = useState(true);
+
+  // Check training status on mount and periodically
+  useEffect(() => {
+    const checkTrainingStatus = async () => {
+      try {
+        const response = await fetch("/api/train-status");
+        const status: TrainingStatus = await response.json();
+        setTrainingStatus(status);
+        setCheckingTraining(false);
+      } catch (err) {
+        console.error("Failed to check training status:", err);
+        setCheckingTraining(false);
+      }
+    };
+
+    checkTrainingStatus();
+    
+    // Poll every 10 seconds if training is in progress or model doesn't exist
+    const interval = setInterval(() => {
+      checkTrainingStatus();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -83,6 +117,14 @@ export default function Home() {
       });
 
       const data = await response.json();
+
+      // Handle automatic training response
+      if (response.status === 503 && data.training) {
+        setTrainingStatus(data.status);
+        setError(null); // Clear error to show training message instead
+        setLoading(false);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Prediction failed");
@@ -186,21 +228,47 @@ export default function Home() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={!file || loading}
+              disabled={!file || loading || (trainingStatus !== null && !trainingStatus.modelExists)}
               className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors ${
-                !file || loading
+                !file || loading || (trainingStatus !== null && !trainingStatus.modelExists)
                   ? "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             >
-              {loading ? "Classifying..." : "Classify MRI"}
+              {loading 
+                ? "Classifying..." 
+                : trainingStatus !== null && !trainingStatus.modelExists 
+                  ? "Waiting for model..." 
+                  : "Classify MRI"}
             </button>
           </form>
+
+          {/* Training Status */}
+          {trainingStatus?.isTraining && (
+            <div className="mt-4 p-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-400 dark:border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700 dark:border-blue-300"></div>
+                <div>
+                  <p className="font-semibold">Training model in progress...</p>
+                  <p className="text-sm mt-1">
+                    {trainingStatus.message || "This may take 10-30 minutes. The page will automatically refresh when training completes."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
             <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 rounded-lg">
               {error}
+            </div>
+          )}
+
+          {/* Training Complete Message */}
+          {trainingStatus && !trainingStatus.isTraining && trainingStatus.modelExists && !result && (
+            <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-300 rounded-lg">
+              Model is ready! You can now upload an image to get predictions.
             </div>
           )}
         </div>

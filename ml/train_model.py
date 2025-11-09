@@ -119,6 +119,31 @@ def compute_class_weights(labels):
     return dict(enumerate(class_weights))
 
 
+def weighted_categorical_crossentropy(class_weights):
+    """
+    Create a weighted categorical crossentropy loss function.
+    """
+    def loss(y_true, y_pred):
+        # Convert class weights to tensor
+        weights = tf.constant(list(class_weights.values()), dtype=tf.float32)
+        
+        # Calculate standard categorical crossentropy
+        ce = keras.losses.categorical_crossentropy(y_true, y_pred)
+        
+        # Get class indices from one-hot encoded labels
+        class_indices = tf.argmax(y_true, axis=1)
+        
+        # Get weights for each sample in batch
+        sample_weights = tf.gather(weights, class_indices)
+        
+        # Apply weights
+        weighted_ce = ce * sample_weights
+        
+        return tf.reduce_mean(weighted_ce)
+    
+    return loss
+
+
 def create_data_generators(train_paths, train_labels, val_paths, val_labels):
     """
     Create data generators with augmentation for training and validation.
@@ -313,10 +338,13 @@ def main():
     print("\nCreating model...")
     model, base_model = create_model()
     
+    # Create weighted loss function
+    weighted_loss = weighted_categorical_crossentropy(class_weights)
+    
     # Compile model
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=0.001),
-        loss="categorical_crossentropy",
+        loss=weighted_loss,
         metrics=["accuracy"]
     )
     
@@ -334,6 +362,7 @@ def main():
             filepath=str(MODEL_PATH),
             monitor="val_accuracy",
             save_best_only=True,
+            save_weights_only=False,
             verbose=1
         )
     ]
@@ -354,7 +383,6 @@ def main():
         validation_steps=val_steps,
         epochs=20,
         callbacks=callbacks,
-        class_weight=class_weights,
         verbose=1
     )
     
@@ -368,10 +396,10 @@ def main():
     for layer in base_model.layers[:-30]:
         layer.trainable = False
     
-    # Recompile with lower learning rate
+    # Recompile with lower learning rate (using same weighted loss)
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=0.0001),
-        loss="categorical_crossentropy",
+        loss=weighted_loss,
         metrics=["accuracy"]
     )
     
@@ -382,13 +410,25 @@ def main():
         validation_steps=val_steps,
         epochs=EPOCHS - 20,
         callbacks=callbacks,
-        class_weight=class_weights,
         verbose=1
     )
     
     # Load best model
+    # Note: We load with compile=False to avoid issues with custom loss function
+    # For evaluation, we don't need the loss function - we can use predict() directly
     print("\nLoading best model...")
-    model = keras.models.load_model(str(MODEL_PATH))
+    try:
+        # Try loading normally first (in case it was saved without custom loss)
+        model = keras.models.load_model(str(MODEL_PATH))
+    except:
+        # If that fails (due to custom loss), load without compilation
+        # We'll need to provide the custom loss function
+        weighted_loss = weighted_categorical_crossentropy(class_weights)
+        model = keras.models.load_model(
+            str(MODEL_PATH),
+            custom_objects={'loss': weighted_loss},
+            compile=False
+        )
     
     # Calculate final metrics
     print("\n" + "=" * 60)
@@ -425,9 +465,16 @@ def main():
     plot_confusion_matrix(cm, cm_path)
     print(f"Confusion matrix saved to {cm_path}")
     
-    # Save final model
-    model.save(str(MODEL_PATH))
+    # Save final model without compilation state for easier loading in predict.py
+    # The ModelCheckpoint already saved the best model, but we'll save again without compilation
+    # This ensures predict.py can load it without needing the custom loss function
+    model.save(str(MODEL_PATH), save_format='h5')
     print(f"\nModel saved to {MODEL_PATH}")
+    
+    # Also save weights only as a backup (can be loaded into a model with standard loss)
+    weights_path = MODEL_DIR / "model_weights.h5"
+    model.save_weights(str(weights_path))
+    print(f"Weights also saved to {weights_path}")
     
     print("\n" + "=" * 60)
     print("Training completed!")

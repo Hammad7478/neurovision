@@ -176,8 +176,9 @@ def main():
         sys.exit(1)
     
     try:
-        # Load model
-        model = keras.models.load_model(str(model_path))
+        # Load model with compile=False to avoid needing the custom loss function
+        # For inference, we don't need the loss function - model.predict() works without it
+        model = keras.models.load_model(str(model_path), compile=False)
         
         # Predict
         results, pred_idx = predict_image(model, str(image_path))

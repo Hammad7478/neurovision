@@ -89,7 +89,40 @@ Each folder should contain MRI images in JPG or PNG format.
 
 ## Usage
 
+### Using a Pre-trained Model (Recommended)
+
+**Train once locally, then reuse the model:**
+
+1. **Train the model once** (takes 10-30 minutes):
+   ```bash
+   python3 ml/train_model.py
+   ```
+
+2. **The model is saved to `model/model.h5`** and persists on disk
+
+3. **Use the model for predictions** - no need to retrain!
+
+**For deployment with a pre-trained model:**
+
+#### Option A: Download from Cloud Storage
+
+Set the `MODEL_URL` environment variable and download:
+
+```bash
+# Using Python script
+MODEL_URL=https://your-storage.com/model.h5 python3 ml/download_model.py
+
+# Using shell script
+MODEL_URL=https://your-storage.com/model.h5 ./scripts/download-model.sh
+```
+
+#### Option B: Include in Deployment
+
+Simply include the `model/model.h5` file in your deployment. The model file (~100-200MB) will be used directly.
+
 ### Training the Model
+
+**Note**: You only need to train once! The model persists in `model/model.h5`.
 
 #### Option 1: Using the Convenience Script
 
@@ -106,7 +139,7 @@ This script will:
 #### Option 2: Manual Training
 
 ```bash
-python ml/train_model.py
+python3 ml/train_model.py
 ```
 
 The training script will:
@@ -118,9 +151,19 @@ The training script will:
 - Generate metrics and confusion matrix
 
 **Training Outputs:**
-- `model/model.h5` - Trained model file
+- `model/model.h5` - Trained model file (~100-200MB)
 - `model/metrics.json` - Classification metrics (F1 scores, precision, recall)
 - `model/confusion_matrix.png` - Confusion matrix visualization
+
+### Automatic Model Handling
+
+The application automatically handles model availability:
+
+1. **If model exists**: Uses it immediately for predictions
+2. **If model doesn't exist and `MODEL_URL` is set**: Downloads the model
+3. **If model doesn't exist and no `MODEL_URL`**: Automatically starts training (takes 10-30 minutes)
+
+See `MODEL_DISTRIBUTION.md` for detailed information on distributing pre-trained models.
 
 ### Running the Development Server
 
@@ -206,105 +249,9 @@ Upload an image and get predictions.
 
 Serve Grad-CAM visualization images.
 
-## Troubleshooting
-
-### Apple Silicon (M1/M2/M3 Macs)
-
-If you encounter issues with TensorFlow on Apple Silicon:
-
-1. **Install TensorFlow for macOS:**
-   ```bash
-   pip install tensorflow-macos tensorflow-metal
-   ```
-
-2. **Verify installation:**
-   ```python
-   import tensorflow as tf
-   print(tf.config.list_physical_devices('GPU'))
-   ```
-
-3. **If you see Metal device**, GPU acceleration is enabled.
-
-### Model Not Found Error
-
-If you get "Model not found" error:
-- Ensure you've trained the model first: `python ml/train_model.py`
-- Check that `model/model.h5` exists
-
-### Python Script Execution Errors
-
-If the API route fails to execute Python scripts:
-- Ensure Python 3 is installed and accessible as `python3`
-- Check that all Python dependencies are installed
-- Verify the model file exists
-
-### Out of Memory Errors
-
-If you encounter memory errors during training:
-- Reduce `BATCH_SIZE` in `ml/train_model.py`
-- Reduce image size (though this may affect accuracy)
-- Close other applications using GPU/memory
-
-### Grad-CAM Not Generating
-
-If Grad-CAM visualization is not generated:
-- Check that `model/tmp/` directory exists and is writable
-- Verify matplotlib is installed correctly
-- Check console logs for error messages
-
-## Deployment Considerations
-
-### Local Development / VPS
-
-This setup works well for:
-- Local development
-- VPS deployments (with Node.js and Python installed)
-- Docker containers (with both Node.js and Python)
-
-### Node-Only Platforms (e.g., Vercel)
-
-**Current limitation**: This architecture requires Python to be available on the server. Platforms like Vercel (Node.js-only) cannot run Python scripts directly.
-
-**Future options:**
-1. **Separate Python microservice**: Deploy the prediction logic as a separate Flask/FastAPI service
-2. **TensorFlow.js**: Convert the model to TensorFlow.js format and run inference in the browser/Node.js
-3. **VPS deployment**: Deploy to a VPS with both Node.js and Python support
-
-## Development
-
 ### Project Structure Notes
 
 - **ML Code**: All machine learning code is in the `ml/` directory
 - **API Routes**: Next.js API routes handle file uploads and call Python scripts
 - **Frontend**: React components in `app/page.tsx` provide the UI
 - **Static Serving**: Grad-CAM images are served via API route (`/api/serve-gradcam`)
-
-### Code Style
-
-- **Python**: Follows PEP 8 style guidelines
-- **TypeScript**: Uses strict type checking
-- **React**: Functional components with hooks
-
-## License
-
-This project is provided as-is for educational and research purposes.
-
-## Acknowledgments
-
-- Transfer learning approach inspired by modern deep learning best practices
-- ResNet50 architecture from Keras Applications
-- Grad-CAM implementation based on the original paper: "Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization"
-
-## Contributing
-
-Contributions are welcome! Please ensure:
-- Code follows existing style guidelines
-- All tests pass
-- Documentation is updated
-
-## Support
-
-For issues and questions:
-1. Check the troubleshooting section
-2. Review error messages in console/logs
-3. Ensure all dependencies are correctly installed
