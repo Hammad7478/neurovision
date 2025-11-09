@@ -1,0 +1,20 @@
+# Core ML and Deep Learning
+tensorflow>=2.15.0
+# For Apple Silicon (M1/M2/M3 Macs), use: tensorflow-macos>=2.15.0
+# And install metal plugin: tensorflow-metal>=1.0.0
+
+# Image Processing
+numpy>=1.24.0
+pillow>=10.0.0
+opencv-python>=4.8.0
+
+# Machine Learning Utilities
+scikit-learn>=1.3.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Utilities
+pathlib2>=2.3.7; python_version < '3.4'
+
