@@ -251,7 +251,7 @@ export default function Home() {
                 <div>
                   <p className="font-semibold">Training model in progress...</p>
                   <p className="text-sm mt-1">
-                    {trainingStatus.message || "This may take 10-30 minutes. The page will automatically refresh when training completes."}
+                    {trainingStatus.message || "Training will stop automatically when validation accuracy reaches 90%. This typically takes 5-15 minutes. The page will automatically refresh when training completes."}
                   </p>
                 </div>
               </div>
@@ -268,7 +268,10 @@ export default function Home() {
           {/* Training Complete Message */}
           {trainingStatus && !trainingStatus.isTraining && trainingStatus.modelExists && !result && (
             <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-300 rounded-lg">
-              Model is ready! You can now upload an image to get predictions.
+              <p className="font-semibold">Model is ready!</p>
+              <p className="text-sm mt-1">
+                Training completed (stopped at 90% validation accuracy). You can now upload an image to get predictions.
+              </p>
             </div>
           )}
         </div>

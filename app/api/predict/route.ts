@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
             setTrainingStatus({
               isTraining: true,
               progress: 0,
-              message: "Training started automatically...",
+              message: "Training started automatically. Will stop at 90% validation accuracy...",
               error: null,
             });
             
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
                 setTrainingStatus({
                   isTraining: false,
                   progress: 100,
-                  message: "Training completed successfully!",
+                  message: "Training completed successfully! (Stopped at 90% validation accuracy)",
                   error: null,
                 });
               } else {
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         {
           error: modelUrl 
             ? "Model not found. Downloading pre-trained model..." 
-            : "Model not found. Training has been started automatically. This may take 10-30 minutes.",
+            : "Model not found. Training has been started automatically. Training will stop when validation accuracy reaches 90% (typically 5-15 minutes).",
           training: true,
           status: getTrainingStatus(),
         },

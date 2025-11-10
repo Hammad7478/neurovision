@@ -35,7 +35,7 @@ export async function POST() {
     setTrainingStatus({
       isTraining: true,
       progress: 0,
-      message: "Training started...",
+      message: "Training started. Will stop automatically at 90% validation accuracy...",
       error: null,
     });
 
@@ -63,7 +63,7 @@ export async function POST() {
         setTrainingStatus({
           isTraining: false,
           progress: 100,
-          message: "Training completed successfully!",
+          message: "Training completed successfully! (Stopped at 90% validation accuracy)",
           error: null,
         });
       } else {

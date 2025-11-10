@@ -15,7 +15,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.applications.resnet50 import preprocess_input
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, Callback
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.utils.class_weight import compute_class_weight
@@ -36,6 +36,37 @@ NUM_CLASSES = len(CLASSES)
 
 # Create model directory if it doesn't exist
 MODEL_DIR.mkdir(exist_ok=True)
+
+
+class StopAtValAccuracy(Callback):
+    """
+    Custom callback that stops training when validation accuracy reaches a target threshold.
+    This provides explicit early stopping based on a target accuracy value.
+    The callback works across training phases - if 90% is reached in phase 1, training stops;
+    otherwise it continues to phase 2 and stops when the target is reached.
+    """
+    def __init__(self, target=0.90):
+        super().__init__()
+        self.target = target
+        self.stopped_epoch = 0
+    
+    def on_train_begin(self, logs=None):
+        """Reset stopped_epoch at the start of each training phase."""
+        self.stopped_epoch = 0
+    
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        val_acc = logs.get("val_accuracy")
+        
+        if val_acc is not None and val_acc >= self.target:
+            print(f"\n✓ Validation accuracy ({val_acc:.4f}) reached target ({self.target:.4f})")
+            print(f"Stopping training early at epoch {epoch + 1}")
+            self.model.stop_training = True
+            self.stopped_epoch = epoch + 1
+    
+    def on_train_end(self, logs=None):
+        if self.stopped_epoch > 0:
+            print(f"\nTraining stopped early at epoch {self.stopped_epoch} due to reaching {self.target:.0%} validation accuracy")
 
 
 def load_dataset(data_dir: Path):
@@ -81,11 +112,11 @@ def create_model():
     # Build model
     inputs = keras.Input(shape=(IMAGE_SIZE[0], IMAGE_SIZE[1], 3))
     
-    # Preprocess input (ImageNet normalization)
-    x = preprocess_input(inputs)
+    # Note: Preprocessing (ImageNet normalization) is applied in the data generator
+    # and in predict.py, not here, to ensure consistency between training and inference
     
     # Base model
-    x = base_model(x, training=False)
+    x = base_model(inputs, training=False)
     
     # Global average pooling
     x = layers.GlobalAveragePooling2D()(x)
@@ -351,7 +382,11 @@ def main():
     print(f"Model parameters: {model.count_params():,}")
     
     # Callbacks
+    # StopAtValAccuracy: Stops training when val_accuracy >= 0.90
+    # EarlyStopping: Safety net - stops if validation doesn't improve for 10 epochs
+    # ModelCheckpoint: Saves the best model based on val_accuracy
     callbacks = [
+        StopAtValAccuracy(target=0.90),
         EarlyStopping(
             monitor="val_accuracy",
             patience=10,
@@ -468,11 +503,13 @@ def main():
     # Save final model without compilation state for easier loading in predict.py
     # The ModelCheckpoint already saved the best model, but we'll save again without compilation
     # This ensures predict.py can load it without needing the custom loss function
-    model.save(str(MODEL_PATH), save_format='h5')
+    # Note: save_format argument is deprecated in Keras 3, format is inferred from file extension
+    model.save(str(MODEL_PATH))
     print(f"\nModel saved to {MODEL_PATH}")
     
     # Also save weights only as a backup (can be loaded into a model with standard loss)
-    weights_path = MODEL_DIR / "model_weights.h5"
+    # Note: In Keras 3, weights files must end with .weights.h5
+    weights_path = MODEL_DIR / "model_weights.weights.h5"
     model.save_weights(str(weights_path))
     print(f"Weights also saved to {weights_path}")
     

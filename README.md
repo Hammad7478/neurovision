@@ -5,9 +5,33 @@ A single-app solution for brain MRI tumor classification using deep learning. Ne
 ## Features
 
 - **Deep Learning Model**: Transfer learning with ResNet50 for accurate tumor classification
+- **Early Stopping**: Training automatically stops when validation accuracy reaches 90%
 - **Grad-CAM Visualization**: Visualize which regions of the MRI the model focuses on for predictions
 - **Modern Web Interface**: Built with Next.js 14, React 18, TypeScript, and Tailwind CSS
 - **Single-App Architecture**: No separate Flask server - everything runs in Next.js with Python scripts called via child processes
+
+## Quick Start
+
+1. **Install dependencies:**
+
+   ```bash
+   pip install -r requirements.txt
+   npm install
+   ```
+
+2. **Train the model** (stops early at 90% validation accuracy):
+
+   ```bash
+   python ml/train_model.py
+   ```
+
+3. **Start the development server:**
+
+   ```bash
+   npm run dev
+   ```
+
+4. **Upload an MRI image** → Get prediction with tumor classification
 
 ## Project Structure
 
@@ -59,17 +83,20 @@ npm install
 ### 2. Install Python Dependencies
 
 For standard systems:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 For Apple Silicon (M1/M2/M3 Macs):
+
 ```bash
 pip install tensorflow-macos tensorflow-metal
 pip install -r requirements.txt
 ```
 
 **Note**: On Apple Silicon, you may need to install TensorFlow with Metal support for GPU acceleration:
+
 ```bash
 pip install tensorflow-macos tensorflow-metal
 ```
@@ -77,6 +104,7 @@ pip install tensorflow-macos tensorflow-metal
 ### 3. Prepare Training Data
 
 Ensure your training data is organized in the `data/` directory with the following structure:
+
 ```
 data/
 ├── glioma/
@@ -94,6 +122,7 @@ Each folder should contain MRI images in JPG or PNG format.
 **Train once locally, then reuse the model:**
 
 1. **Train the model once** (takes 10-30 minutes):
+
    ```bash
    python3 ml/train_model.py
    ```
@@ -131,6 +160,7 @@ Simply include the `model/model.h5` file in your deployment. The model file (~10
 ```
 
 This script will:
+
 - Create a virtual environment (if needed)
 - Install Python dependencies
 - Train the model
@@ -143,14 +173,19 @@ python3 ml/train_model.py
 ```
 
 The training script will:
+
 - Load images from `data/` directory
 - Split data into training and validation sets (80/20)
 - Apply data augmentation
 - Train a ResNet50-based model with transfer learning
+- **Stop automatically when validation accuracy reaches 90%** (early stopping)
 - Save the best model to `model/model.h5`
 - Generate metrics and confusion matrix
 
+**Early Stopping**: The training process uses a custom callback that automatically stops training when validation accuracy reaches 90% (`val_accuracy >= 0.90`). This prevents overtraining and reduces training time. The model will still save the best weights based on validation accuracy, and all metrics (precision, recall, F1 scores, confusion matrix) are computed and saved after training completes.
+
 **Training Outputs:**
+
 - `model/model.h5` - Trained model file (~100-200MB)
 - `model/metrics.json` - Classification metrics (F1 scores, precision, recall)
 - `model/confusion_matrix.png` - Confusion matrix visualization
@@ -182,6 +217,7 @@ python ml/predict.py --image path/to/image.jpg --model ./model/model.h5 --gradca
 ```
 
 This will output JSON with predictions:
+
 ```json
 {
   "prediction": "glioma",
@@ -216,8 +252,13 @@ The model uses **transfer learning** with ResNet50 as the base architecture:
 - **Input Size**: 224×224 pixels
 - **Output**: 4 classes (glioma, meningioma, pituitary, notumor)
 - **Training Strategy**:
-  1. Phase 1: Freeze base model, train classifier head
-  2. Phase 2: Unfreeze top layers, fine-tune with lower learning rate
+  1. Phase 1: Freeze base model, train classifier head (up to 20 epochs)
+  2. Phase 2: Unfreeze top layers, fine-tune with lower learning rate (up to 30 epochs)
+- **Early Stopping**: Training stops automatically when validation accuracy reaches 90% (`val_accuracy >= 0.90`)
+- **Callbacks**:
+  - Custom `StopAtValAccuracy` callback: Stops at 90% validation accuracy
+  - `EarlyStopping`: Safety net - stops if validation doesn't improve for 10 epochs
+  - `ModelCheckpoint`: Saves the best model based on validation accuracy
 
 ## API Endpoints
 
@@ -226,11 +267,13 @@ The model uses **transfer learning** with ResNet50 as the base architecture:
 Upload an image and get predictions.
 
 **Request:**
+
 - Method: POST
 - Content-Type: multipart/form-data
 - Body: `file` (image file)
 
 **Response:**
+
 ```json
 {
   "prediction": "glioma",
