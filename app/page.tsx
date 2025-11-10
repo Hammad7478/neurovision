@@ -148,6 +148,20 @@ export default function Home() {
     return "bg-red-500";
   };
 
+  const handleReset = () => {
+    setFile(null);
+    setPreview(null);
+    setResult(null);
+    setError(null);
+    setLoading(false);
+    // Reset file input
+    const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -225,22 +239,58 @@ export default function Home() {
               )}
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={!file || loading || (trainingStatus !== null && !trainingStatus.modelExists)}
-              className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors ${
-                !file || loading || (trainingStatus !== null && !trainingStatus.modelExists)
-                  ? "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              }`}
-            >
-              {loading 
-                ? "Classifying..." 
-                : trainingStatus !== null && !trainingStatus.modelExists 
-                  ? "Waiting for model..." 
-                  : "Classify MRI"}
-            </button>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={!file || loading || (trainingStatus !== null && !trainingStatus.modelExists)}
+                className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all relative overflow-hidden ${
+                  !file || loading || (trainingStatus !== null && !trainingStatus.modelExists)
+                    ? "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg"
+                } ${loading ? "animate-pulse" : ""}`}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg
+                      className="w-5 h-5 animate-spin"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    <span className="flex items-center">
+                      Classifying
+                      <span className="inline-flex gap-1 ml-1">
+                        <span className="animate-[bounce_1s_ease-in-out_infinite]">.</span>
+                        <span className="animate-[bounce_1s_ease-in-out_0.2s_infinite]">.</span>
+                        <span className="animate-[bounce_1s_ease-in-out_0.4s_infinite]">.</span>
+                      </span>
+                    </span>
+                  </span>
+                ) : trainingStatus !== null && !trainingStatus.modelExists ? (
+                  "Waiting for model..."
+                ) : (
+                  "Classify MRI"
+                )}
+              </button>
+              {(file || result) && (
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  disabled={loading}
+                  className="px-6 py-3 rounded-lg font-semibold transition-colors bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
           </form>
 
           {/* Training Status */}
@@ -278,7 +328,7 @@ export default function Home() {
 
         {/* Results Section */}
         {result && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 space-y-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 space-y-6 animate-fadeIn">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
               Prediction Results
             </h2>
