@@ -42,10 +42,10 @@ class StopAtValAccuracy(Callback):
     """
     Custom callback that stops training when validation accuracy reaches a target threshold.
     This provides explicit early stopping based on a target accuracy value.
-    The callback works across training phases - if 90% is reached in phase 1, training stops;
+    The callback works across training phases - if 95% is reached in phase 1, training stops;
     otherwise it continues to phase 2 and stops when the target is reached.
     """
-    def __init__(self, target=0.90):
+    def __init__(self, target=0.95):
         super().__init__()
         self.target = target
         self.stopped_epoch = 0
@@ -382,11 +382,11 @@ def main():
     print(f"Model parameters: {model.count_params():,}")
     
     # Callbacks
-    # StopAtValAccuracy: Stops training when val_accuracy >= 0.90
+    # StopAtValAccuracy: Stops training when val_accuracy >= 0.95
     # EarlyStopping: Safety net - stops if validation doesn't improve for 10 epochs
     # ModelCheckpoint: Saves the best model based on val_accuracy
     callbacks = [
-        StopAtValAccuracy(target=0.90),
+        StopAtValAccuracy(target=0.95),
         EarlyStopping(
             monitor="val_accuracy",
             patience=10,
