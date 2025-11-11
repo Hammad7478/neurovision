@@ -203,9 +203,13 @@ export default function Home() {
   const formatProbability = (prob: number) => (prob * 100).toFixed(1);
 
   const getProbabilityColor = (prob: number) => {
-    if (prob > 0.7) return "bg-green-500";
-    if (prob > 0.4) return "bg-yellow-500";
-    return "bg-red-500";
+    if (prob > 0.7) {
+      return "bg-gradient-to-r from-[#5BC0BE] to-[#6FFFE9]";
+    }
+    if (prob > 0.4) {
+      return "bg-gradient-to-r from-[#3A506B] to-[#5BC0BE]";
+    }
+    return "bg-gradient-to-r from-[#F97316]/90 to-[#EF4444]/90";
   };
 
   const formatMetricPercentage = (value?: number) =>
@@ -215,10 +219,26 @@ export default function Home() {
     () =>
       metrics
         ? [
-            { label: "Accuracy", value: metrics.accuracy },
-            { label: "Precision", value: metrics.precision },
-            { label: "Recall", value: metrics.recall },
-            { label: "F1 Score", value: metrics.f1_score ?? metrics.macro_f1 },
+            {
+              label: "Accuracy",
+              value: metrics.accuracy,
+              description: "Overall proportion of MRI scans classified correctly.",
+            },
+            {
+              label: "Precision",
+              value: metrics.precision,
+              description: "How often predicted tumors were actually correct.",
+            },
+            {
+              label: "Recall",
+              value: metrics.recall,
+              description: "How many tumors present in MRIs the model found.",
+            },
+            {
+              label: "F1 Score",
+              value: metrics.f1_score ?? metrics.macro_f1,
+              description: "Balance of precision and recall across all classes.",
+            },
           ]
         : [],
     [metrics]
@@ -267,16 +287,24 @@ export default function Home() {
         {
           label: "Training Accuracy",
           data: labels.map((_, idx) => toPoint(train, idx)),
-          borderColor: "#2563eb",
-          backgroundColor: "rgba(37, 99, 235, 0.15)",
-          tension: 0.3,
+          borderColor: "#5BC0BE",
+          backgroundColor: "rgba(91, 192, 190, 0.25)",
+          pointBackgroundColor: "#6FFFE9",
+          pointBorderColor: "#0B132B",
+          pointRadius: 4,
+          borderWidth: 3,
+          tension: 0.4,
         },
         {
           label: "Validation Accuracy",
           data: labels.map((_, idx) => toPoint(val, idx)),
-          borderColor: "#f97316",
-          backgroundColor: "rgba(249, 115, 22, 0.15)",
-          tension: 0.3,
+          borderColor: "#F2A541",
+          backgroundColor: "rgba(242, 165, 65, 0.2)",
+          pointBackgroundColor: "#F2A541",
+          pointBorderColor: "#0B132B",
+          pointRadius: 4,
+          borderWidth: 3,
+          tension: 0.4,
         },
       ],
     };
@@ -298,16 +326,24 @@ export default function Home() {
         {
           label: "Training Loss",
           data: labels.map((_, idx) => toPoint(train, idx)),
-          borderColor: "#10b981",
-          backgroundColor: "rgba(16, 185, 129, 0.15)",
-          tension: 0.3,
+          borderColor: "#E15A97",
+          backgroundColor: "rgba(225, 90, 151, 0.25)",
+          pointBackgroundColor: "#E15A97",
+          pointBorderColor: "#0B132B",
+          pointRadius: 4,
+          borderWidth: 3,
+          tension: 0.4,
         },
         {
           label: "Validation Loss",
           data: labels.map((_, idx) => toPoint(val, idx)),
-          borderColor: "#ec4899",
-          backgroundColor: "rgba(236, 72, 153, 0.15)",
-          tension: 0.3,
+          borderColor: "#3D8BEB",
+          backgroundColor: "rgba(61, 139, 235, 0.22)",
+          pointBackgroundColor: "#3D8BEB",
+          pointBorderColor: "#0B132B",
+          pointRadius: 4,
+          borderWidth: 3,
+          tension: 0.4,
         },
       ],
     };
@@ -320,21 +356,29 @@ export default function Home() {
       plugins: {
         legend: {
           labels: {
-            color: "#64748b",
+            color: "#9AA9D8",
             font: {
-              family: "var(--font-geist-sans, Inter, system-ui, sans-serif)",
+              family: "var(--font-poppins, 'DM Sans', system-ui, sans-serif)",
+              weight: 500,
             },
           },
+        },
+        tooltip: {
+          backgroundColor: "rgba(20, 32, 53, 0.92)",
+          borderColor: "#5BC0BE",
+          borderWidth: 1,
+          titleColor: "#E6F1FF",
+          bodyColor: "#D5E5FF",
         },
       },
       scales: {
         x: {
-          ticks: { color: "#94a3b8" },
-          grid: { color: "rgba(148, 163, 184, 0.2)" },
+          ticks: { color: "#7C8FB8", font: { family: "var(--font-poppins)" } },
+          grid: { color: "rgba(76, 103, 148, 0.25)" },
         },
         y: {
-          ticks: { color: "#94a3b8" },
-          grid: { color: "rgba(148, 163, 184, 0.2)" },
+          ticks: { color: "#7C8FB8", font: { family: "var(--font-poppins)" } },
+          grid: { color: "rgba(76, 103, 148, 0.25)" },
         },
       },
     }),
@@ -365,28 +409,37 @@ export default function Home() {
   }, [loadMetrics, metricsLoading]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="relative min-h-screen overflow-hidden bg-[#0B132B] text-[#E6F1FF]">
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(111,255,233,0.18),transparent_55%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(91,192,190,0.17),transparent_55%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0B132B]/65 to-[#0B132B]" />
+      </div>
+
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-10 px-4 py-12">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
+        <header className="text-center space-y-3">
+          <p className="text-[0.65rem] uppercase tracking-[0.65em] text-[#6FFFE9]/70">
+            AI-Assisted Diagnostics
+          </p>
+          <h1 className="text-4xl sm:text-5xl font-semibold uppercase tracking-[0.38em] text-[#6FFFE9]">
             NeuroVision
           </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-300">
-            Brain MRI Tumor Classification using Deep Learning
+          <p className="mx-auto max-w-2xl text-sm sm:text-base text-[#9AA9D8]">
+            Upload a brain MRI scan to detect and classify tumor types in seconds. Powered by transfer learning and
+            interpretable Grad-CAM visualisations.
           </p>
-        </div>
+          <div className="mx-auto mt-4 h-[2px] w-48 rounded-full bg-gradient-to-r from-[#5BC0BE] via-[#6FFFE9] to-transparent animate-pulse" />
+        </header>
 
         {/* Upload Section */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6">
+        <div className="rounded-2xl border border-white/10 bg-[#1C2541]/80 p-8 shadow-[0_30px_80px_-35px_rgba(9,20,45,0.9)] backdrop-blur-2xl">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div
               onDrop={handleDrop}
               onDragOver={handleDragOver}
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                file
-                  ? "border-green-500 bg-green-50 dark:bg-green-900/20"
-                  : "border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500"
+              className={`group relative overflow-hidden rounded-2xl border border-dashed border-white/15 bg-white/5 p-10 text-center transition-all duration-300 hover:border-[#6FFFE9] hover:bg-white/10 ${
+                file ? "border-[#5BC0BE]" : ""
               }`}
             >
               <input
@@ -398,21 +451,21 @@ export default function Home() {
               />
               <label
                 htmlFor="file-upload"
-                className="cursor-pointer flex flex-col items-center"
+                className="flex cursor-pointer flex-col items-center gap-3 text-[#C0CEFF]"
               >
                 {preview ? (
-                  <div className="relative w-64 h-64 mx-auto mb-4">
+                  <div className="relative mx-auto mb-4 h-64 w-64 drop-shadow-[0_45px_65px_rgba(20,40,75,0.45)]">
                     <Image
                       src={preview}
                       alt="Preview"
                       fill
-                      className="object-contain rounded-lg"
+                      className="rounded-2xl border border-white/10 object-contain"
                     />
                   </div>
                 ) : (
                   <>
                     <svg
-                      className="w-16 h-16 mx-auto mb-4 text-slate-400"
+                      className="mx-auto mb-4 h-16 w-16 text-[#6FFFE9]"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -424,17 +477,17 @@ export default function Home() {
                         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                       />
                     </svg>
-                    <p className="text-slate-600 dark:text-slate-300 mb-2">
-                      Click to upload or drag and drop
+                    <p className="mb-1 text-sm font-medium tracking-wide text-[#E3ECFF]">
+                      Drag &amp; drop or click to upload
                     </p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      PNG, JPG (Max 10MB)
+                    <p className="text-xs text-[#9AA9D8]">
+                      Accepts PNG or JPG. Max file size 10 MB.
                     </p>
                   </>
                 )}
               </label>
               {file && (
-                <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+                <p className="mt-3 text-sm text-[#9AA9D8]">
                   Selected: {file.name}
                 </p>
               )}
@@ -444,16 +497,16 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={!file || loading || (trainingStatus !== null && !trainingStatus.modelExists)}
-                className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all ${
+                className={`flex-1 rounded-xl px-6 py-3 font-semibold transition-all duration-300 ${
                   !file || loading || (trainingStatus !== null && !trainingStatus.modelExists)
-                    ? "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg"
+                    ? "cursor-not-allowed bg-slate-500/30 text-slate-400"
+                    : "cursor-pointer bg-gradient-to-r from-[#4E7A95] via-[#5BA2B4] to-[#4A8BA2] text-[#E6F1FF] shadow-[0_10px_24px_rgba(76,128,146,0.35)] hover:shadow-[0_16px_32px_rgba(90,170,180,0.42)]"
                 }`}
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg
-                      className="w-5 h-5 animate-spin"
+                      className="h-5 w-5 animate-spin"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -478,7 +531,7 @@ export default function Home() {
                   type="button"
                   onClick={handleReset}
                   disabled={loading}
-                  className="px-6 py-3 rounded-lg font-semibold transition-colors bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-xl border border-[#5BC0BE]/60 px-6 py-3 font-semibold text-[#6FFFE9] transition-all duration-300 hover:bg-[#5BC0BE]/15 hover:text-[#E6F1FF] disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-500"
                 >
                   Reset
                 </button>
@@ -487,12 +540,12 @@ export default function Home() {
           </form>
 
           {trainingStatus?.isTraining && (
-            <div className="mt-4 p-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-400 dark:border-blue-600 text-blue-700 dark:text-blue-300 rounded-lg">
+            <div className="mt-5 rounded-2xl border border-[#5BC0BE]/30 bg-[#14213C]/75 p-4 text-[#C6E7FF] shadow-inner">
               <div className="flex items-center space-x-3">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700 dark:border-blue-300"></div>
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#6FFFE9] border-t-transparent"></div>
                 <div>
-                  <p className="font-semibold">Training model in progress...</p>
-                  <p className="text-sm mt-1">
+                  <p className="font-medium tracking-wide">Training model in progress...</p>
+                  <p className="mt-1 text-sm text-[#9AA9D8]">
                     {trainingStatus.message ||
                       "Training will stop automatically when validation accuracy reaches 95%. This typically takes 5-15 minutes. The page will automatically refresh when training completes."}
                   </p>
@@ -502,15 +555,15 @@ export default function Home() {
           )}
 
           {error && (
-            <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 rounded-lg">
+            <div className="mt-5 rounded-2xl border border-red-500/40 bg-[#3A203C]/75 p-4 text-red-100 shadow-inner">
               {error}
             </div>
           )}
 
           {trainingStatus && !trainingStatus.isTraining && trainingStatus.modelExists && !result && (
-            <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-600 text-green-700 dark:text-green-300 rounded-lg">
-              <p className="font-semibold">Model is ready!</p>
-              <p className="text-sm mt-1">
+            <div className="mt-5 rounded-2xl border border-[#6FFFE9]/30 bg-[#16324F]/75 p-4 text-[#E1FBFF] shadow-inner">
+              <p className="font-semibold tracking-wide text-[#6FFFE9]">Model is ready!</p>
+              <p className="mt-1 text-sm text-[#A8C6E7]">
                 Training completed (stopped at 95% validation accuracy). You can now upload an image to get predictions.
               </p>
             </div>
@@ -519,20 +572,20 @@ export default function Home() {
 
         {/* Prediction Results */}
         {result && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <div className="animate-[fadeIn_0.6s_ease-out] space-y-6 rounded-2xl border border-white/10 bg-[#1C2541]/85 p-6 shadow-[0_30px_80px_-40px_rgba(8,20,43,0.9)] backdrop-blur-xl sm:p-8">
+            <h2 className="text-2xl font-semibold tracking-wide text-[#E6F1FF]">
               Prediction Results
             </h2>
 
             <div className="flex items-center space-x-4">
-              <span className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+              <span className="text-lg font-medium text-[#A8C6E7]">
                 Tumor Detected:
               </span>
               <span
-                className={`px-4 py-2 rounded-lg font-bold ${
+                className={`rounded-xl px-4 py-2 text-sm font-semibold tracking-wide shadow-inner transition-transform duration-300 ${
                   result.tumor_detected
-                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                    ? "bg-gradient-to-r from-[#F97316]/60 to-[#EF4444]/80 text-[#FFD5D5]"
+                    : "bg-gradient-to-r from-[#5BC0BE]/40 to-[#6FFFE9]/70 text-[#0B132B]"
                 }`}
               >
                 {result.tumor_detected ? "Yes" : "No"}
@@ -540,32 +593,32 @@ export default function Home() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <span className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+              <span className="text-lg font-medium text-[#A8C6E7]">
                 Type:
               </span>
-              <span className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-lg font-semibold capitalize">
+              <span className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-[#6FFFE9] shadow-inner">
                 {result.prediction}
               </span>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">
+              <h3 className="mb-4 text-lg font-medium text-[#E6F1FF]">
                 Class Probabilities
               </h3>
               <div className="space-y-3">
                 {Object.entries(result.probabilities).map(([className, prob]) => (
-                  <div key={className}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+                  <div key={className} className="transition-transform duration-300 hover:-translate-y-0.5">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-medium capitalize text-[#A8C6E7]">
                         {className}
                       </span>
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="text-sm font-semibold text-[#E6F1FF]">
                         {formatProbability(prob)}%
                       </span>
                     </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3">
+                    <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
                       <div
-                        className={`h-3 rounded-full transition-all ${getProbabilityColor(prob)}`}
+                        className={`h-3 rounded-full transition-all duration-500 ${getProbabilityColor(prob)}`}
                         style={{ width: `${formatProbability(prob)}%` }}
                       />
                     </div>
@@ -576,19 +629,19 @@ export default function Home() {
 
             {result.gradcam_path && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">
+                <h3 className="mb-4 text-lg font-medium text-[#E6F1FF]">
                   Grad-CAM Visualization
                 </h3>
-                <div className="relative w-full max-w-2xl mx-auto aspect-square">
+                <div className="relative mx-auto aspect-square w-full max-w-2xl rounded-2xl border border-white/10 bg-[#111A33]/70 p-4 shadow-inner">
                   <Image
                     src={`/api/serve-gradcam/${result.gradcam_path.split("/").pop() || result.gradcam_path}`}
                     alt="Grad-CAM Visualization"
                     fill
-                    className="object-contain rounded-lg"
+                    className="rounded-xl object-contain"
                     unoptimized
                   />
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 text-center">
+                <p className="mt-2 text-center text-sm text-[#9AA9D8]">
                   Heatmap shows regions the model focused on for prediction
                 </p>
               </div>
@@ -597,17 +650,17 @@ export default function Home() {
         )}
 
         {/* Model Performance Section */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mt-6">
+        <div className="rounded-2xl border border-white/10 bg-[#1C2541]/85 p-6 shadow-[0_30px_80px_-40px_rgba(8,20,43,0.9)] backdrop-blur-xl sm:p-8">
           <button
             type="button"
             onClick={handleToggleMetrics}
-            className="flex w-full items-center justify-between text-left cursor-pointer"
+            className="flex w-full items-center justify-between rounded-xl bg-white/5 px-4 py-3 text-left text-[#E6F1FF] ring-1 ring-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/8 hover:ring-[#5BC0BE]/40 cursor-pointer"
           >
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <h2 className="text-2xl font-semibold tracking-wide text-[#E6F1FF]">
                 Model Performance Metrics
               </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              <p className="mt-1 text-sm text-[#9AA9D8]">
                 Explore how the model performed during training and evaluation (metrics update live as you train the model).
               </p>
             </div>
@@ -641,12 +694,13 @@ export default function Home() {
                       {summaryCards.map((card) => (
                         <div
                           key={card.label}
-                          className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm"
+                      title={card.description}
+                      className="rounded-2xl border border-white/10 bg-[#131E36]/80 p-4 shadow-[0_25px_45px_-30px_rgba(10,20,40,0.8)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_35px_65px_-25px_rgba(111,255,233,0.35)]"
                         >
-                          <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <p className="text-xs uppercase tracking-[0.45em] text-[#6FFFE9]/80">
                             {card.label}
                           </p>
-                          <p className="text-2xl font-semibold text-slate-900 dark:text-white mt-1">
+                      <p className="mt-2 text-3xl font-semibold text-[#E6F1FF]">
                             {formatMetricPercentage(card.value)}
                           </p>
                         </div>
@@ -655,21 +709,21 @@ export default function Home() {
                   )}
 
                   {confusionMatrix.length > 0 && (
-                    <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm">
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                <div className="rounded-2xl border border-white/10 bg-[#141F35]/85 p-5 shadow-[0_25px_60px_-30px_rgba(10,20,43,0.8)]">
+                  <h3 className="mb-4 text-lg font-semibold text-[#E6F1FF]">
                         Confusion Matrix
                       </h3>
                       <div className="overflow-x-auto">
-                        <table className="min-w-full border-collapse">
+                    <table className="min-w-full border-collapse text-sm">
                           <thead>
                             <tr>
-                              <th className="p-2 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 text-left">
+                          <th className="p-2 text-xs uppercase tracking-[0.35em] text-[#6FFFE9]/70 text-left">
                                 True \ Pred
                               </th>
                               {classLabels.map((label) => (
                                 <th
                                   key={`cm-head-${label}`}
-                                  className="p-2 text-xs font-medium text-slate-500 dark:text-slate-400 text-center"
+                              className="p-2 text-xs font-medium uppercase tracking-[0.3em] text-[#9AA9D8] text-center"
                                 >
                                   {label}
                                 </th>
@@ -682,30 +736,30 @@ export default function Home() {
                               return (
                                 <tr key={`cm-row-${rowIdx}`}>
                                   <th
-                                    className={`p-2 text-sm text-left font-semibold ${
+                                  className={`p-2 text-sm text-left font-semibold tracking-wide ${
                                       isPredictedRow
-                                        ? "text-blue-600 dark:text-blue-300"
-                                        : "text-slate-600 dark:text-slate-300"
+                                      ? "text-[#6FFFE9]"
+                                      : "text-[#A8C6E7]"
                                     }`}
                                   >
                                     {classLabels[rowIdx] ?? `Class ${rowIdx + 1}`}
                                   </th>
                                   {row.map((value, colIdx) => {
                                     const ratio = maxConfusionValue === 0 ? 0 : value / maxConfusionValue;
-                                    const backgroundColor = `rgba(59, 130, 246, ${0.15 + ratio * 0.65})`;
+                                  const backgroundColor = `rgba(91, 192, 190, ${0.12 + ratio * 0.6})`;
                                     const textClass =
-                                      ratio > 0.45 ? "text-white" : "text-slate-900 dark:text-slate-100";
+                                    ratio > 0.45 ? "text-[#0B132B]" : "text-[#E6F1FF]";
                                     const isPredictedCol = colIdx === predictedClassIndex;
                                     const highlightClass =
                                       isPredictedRow && isPredictedCol
-                                        ? "ring-2 ring-blue-500"
+                                      ? "ring-2 ring-[#6FFFE9]"
                                         : isPredictedRow || isPredictedCol
-                                        ? "ring-1 ring-blue-300/70"
+                                      ? "ring-1 ring-[#5BC0BE]/60"
                                         : "";
                                     return (
                                       <td
                                         key={`cm-cell-${rowIdx}-${colIdx}`}
-                                        className={`p-2 text-center font-semibold ${textClass} ${highlightClass}`}
+                                      className={`p-2 text-center font-semibold transition-transform duration-200 ${textClass} ${highlightClass}`}
                                         style={{ backgroundColor }}
                                       >
                                         {value}
@@ -724,21 +778,21 @@ export default function Home() {
                   {(accuracyChartData || lossChartData) && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {accuracyChartData && (
-                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm h-72">
-                          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                    <div className="h-72 rounded-2xl border border-white/10 bg-[#141F35]/85 p-5 shadow-[0_25px_60px_-30px_rgba(10,20,43,0.8)]">
+                      <h3 className="mb-4 text-lg font-semibold text-[#E6F1FF]">
                             Accuracy Over Epochs
                           </h3>
-                          <div className="h-56">
+                      <div className="h-56">
                             <Line data={accuracyChartData} options={lineChartOptions} />
                           </div>
                         </div>
                       )}
                       {lossChartData && (
-                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm h-72">
-                          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                    <div className="h-72 rounded-2xl border border-white/10 bg-[#141F35]/85 p-5 shadow-[0_25px_60px_-30px_rgba(10,20,43,0.8)]">
+                      <h3 className="mb-4 text-lg font-semibold text-[#E6F1FF]">
                             Loss Over Epochs
                           </h3>
-                          <div className="h-56">
+                      <div className="h-56">
                             <Line data={lossChartData} options={lineChartOptions} />
                           </div>
                         </div>
@@ -748,19 +802,19 @@ export default function Home() {
 
                   {metrics.per_class_f1 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">
+                  <h3 className="mb-4 text-lg font-semibold text-[#E6F1FF]">
                         Per-Class F1 Scores
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {Object.entries(metrics.per_class_f1).map(([cls, value]) => (
                           <div
                             key={`per-class-${cls}`}
-                            className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-lg p-4 shadow-sm"
+                        className="rounded-2xl border border-white/10 bg-[#131F32]/80 p-4 shadow-[0_20px_45px_-25px_rgba(10,30,57,0.8)] transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_-28px_rgba(91,192,190,0.45)]"
                           >
-                            <p className="text-sm text-slate-500 dark:text-slate-400 capitalize">
+                        <p className="text-xs uppercase tracking-[0.3em] text-[#5BC0BE]/80">
                               {cls}
                             </p>
-                            <p className="text-xl font-semibold text-slate-900 dark:text-white mt-1">
+                        <p className="mt-3 text-2xl font-semibold text-[#E6F1FF]">
                               {formatMetricPercentage(value)}
                             </p>
                           </div>
