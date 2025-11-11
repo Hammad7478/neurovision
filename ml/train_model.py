@@ -570,6 +570,8 @@ def main():
     accuracy = float(report.get("accuracy", 0.0))
     macro_avg = report.get("macro avg", {})
 
+    history_data = metrics_logger.history
+
     metrics = {
         "accuracy": accuracy,
         "precision": float(macro_avg.get("precision", 0.0)),

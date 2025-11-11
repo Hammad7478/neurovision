@@ -601,14 +601,14 @@ export default function Home() {
           <button
             type="button"
             onClick={handleToggleMetrics}
-            className="flex w-full items-center justify-between text-left"
+            className="flex w-full items-center justify-between text-left cursor-pointer"
           >
             <div>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                 Model Performance Metrics
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Explore how the model performed during training and evaluation.
+                Explore how the model performed during training and evaluation (metrics update live as you train the model).
               </p>
             </div>
             <svg
