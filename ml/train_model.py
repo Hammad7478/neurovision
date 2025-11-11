@@ -69,6 +69,67 @@ class StopAtValAccuracy(Callback):
             print(f"\nTraining stopped early at epoch {self.stopped_epoch} due to reaching {self.target:.0%} validation accuracy")
 
 
+class MetricsLoggerCallback(Callback):
+    """
+    Logs training metrics to metrics.json after each epoch so the frontend can display live charts.
+    """
+
+    def __init__(self, metrics_path: Path):
+        super().__init__()
+        self.metrics_path = metrics_path
+        self.history = {
+            "accuracy": [],
+            "val_accuracy": [],
+            "loss": [],
+            "val_loss": []
+        }
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+
+        def append_metric(log_key: str, history_key: str):
+            value = logs.get(log_key)
+            if value is None:
+                return
+            try:
+                self.history[history_key].append(float(value))
+            except (TypeError, ValueError):
+                pass
+
+        append_metric("accuracy", "accuracy")
+        append_metric("val_accuracy", "val_accuracy")
+        append_metric("loss", "loss")
+        append_metric("val_loss", "val_loss")
+
+        latest_val_acc = self.history["val_accuracy"][-1] if self.history["val_accuracy"] else None
+        latest_train_acc = self.history["accuracy"][-1] if self.history["accuracy"] else None
+
+        metrics_snapshot = {
+            "accuracy": latest_val_acc if latest_val_acc is not None else latest_train_acc,
+            "precision": latest_val_acc if latest_val_acc is not None else latest_train_acc,
+            "recall": latest_val_acc if latest_val_acc is not None else latest_train_acc,
+            "f1_score": latest_val_acc if latest_val_acc is not None else latest_train_acc,
+            "train_accuracy": self.history["accuracy"],
+            "val_accuracy": self.history["val_accuracy"],
+            "train_loss": self.history["loss"],
+            "val_loss": self.history["val_loss"]
+        }
+
+        existing = {}
+        if self.metrics_path.exists():
+            try:
+                with open(self.metrics_path, "r") as f:
+                    existing = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                existing = {}
+
+        existing.update({k: v for k, v in metrics_snapshot.items() if v is not None})
+
+        self.metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.metrics_path, "w") as f:
+            json.dump(existing, f, indent=2)
+
+
 def load_dataset(data_dir: Path):
     """
     Load image paths and labels from class subdirectories.
@@ -381,6 +442,8 @@ def main():
     
     print(f"Model parameters: {model.count_params():,}")
     
+    metrics_logger = MetricsLoggerCallback(MODEL_DIR / "metrics.json")
+
     # Callbacks
     # StopAtValAccuracy: Stops training when val_accuracy >= 0.95
     # EarlyStopping: Safety net - stops if validation doesn't improve for 10 epochs
@@ -399,7 +462,8 @@ def main():
             save_best_only=True,
             save_weights_only=False,
             verbose=1
-        )
+        ),
+        metrics_logger
     ]
     
     # Calculate steps per epoch
@@ -447,7 +511,26 @@ def main():
         callbacks=callbacks,
         verbose=1
     )
-    
+
+    # Merge training history from both phases for analytics
+    history_data = {
+        "accuracy": [],
+        "val_accuracy": [],
+        "loss": [],
+        "val_loss": []
+    }
+
+    def extend_history(history_obj):
+        if not history_obj:
+            return
+        for key in history_data.keys():
+            values = history_obj.history.get(key, [])
+            if values:
+                history_data[key].extend([float(v) for v in values])
+
+    extend_history(history1)
+    extend_history(history2)
+
     # Load best model
     # Note: We load with compile=False to avoid issues with custom loss function
     # For evaluation, we don't need the loss function - we can use predict() directly
@@ -484,10 +567,20 @@ def main():
         print(f"  {class_name}: {f1:.4f}")
     
     # Save metrics
+    accuracy = float(report.get("accuracy", 0.0))
+    macro_avg = report.get("macro avg", {})
+
     metrics = {
-        "macro_f1": float(f1_macro),
-        "per_class_f1": {cls: float(f1) for cls, f1 in zip(CLASSES, f1_per_class)},
-        "classification_report": report
+        "accuracy": accuracy,
+        "precision": float(macro_avg.get("precision", 0.0)),
+        "recall": float(macro_avg.get("recall", 0.0)),
+        "f1_score": float(macro_avg.get("f1-score", f1_macro)),
+        "train_accuracy": history_data["accuracy"],
+        "val_accuracy": history_data["val_accuracy"],
+        "train_loss": history_data["loss"],
+        "val_loss": history_data["val_loss"],
+        "confusion_matrix": cm.tolist(),
+        "per_class_f1": {cls: float(f1) for cls, f1 in zip(CLASSES, f1_per_class)}
     }
     
     metrics_path = MODEL_DIR / "metrics.json"

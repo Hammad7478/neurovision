@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
                 setTrainingStatus({
                   isTraining: false,
                   progress: 100,
-                  message: "Training completed successfully! (Stopped at 90% validation accuracy)",
+                  message: "Training completed successfully! (Stopped at 95% validation accuracy)",
                   error: null,
                 });
               } else {

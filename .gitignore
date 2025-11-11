@@ -9,7 +9,6 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-package-lock.json
 
 # testing
 /coverage
@@ -47,6 +46,8 @@ model/tmp/
 *.h5
 *.pkl
 *.pth
+model/metrics.json
+model/confusion_matrix.png
 
 # Python
 __pycache__/
