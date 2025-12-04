@@ -12,7 +12,10 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from tensorflow.keras.applications.resnet50 import preprocess_input
+from tensorflow.keras.applications.resnet50 import preprocess_input as resnet_preprocess
+from tensorflow.keras.applications.mobilenet_v2 import (
+    preprocess_input as mobilenet_preprocess,
+)
 from PIL import Image
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
@@ -28,7 +31,27 @@ CLASSES = ["glioma", "meningioma", "pituitary", "notumor"]
 IMAGE_SIZE = (224, 224)
 
 
-def preprocess_image(image_path: str) -> tuple:
+def resolve_preprocess(model_type: str, model_path: str):
+    """
+    Pick the appropriate preprocessing function based on model type or path.
+    """
+    mt = (model_type or "").lower()
+    inferred = None
+    if mt in {"resnet50", "mobilenetv2"}:
+        inferred = mt
+    else:
+        lower_path = model_path.lower()
+        if "mobilenet" in lower_path:
+            inferred = "mobilenetv2"
+        else:
+            inferred = "resnet50"
+
+    if inferred == "mobilenetv2":
+        return mobilenet_preprocess, "mobilenetv2"
+    return resnet_preprocess, "resnet50"
+
+
+def preprocess_image(image_path: str, preprocess_fn) -> tuple:
     """
     Load and preprocess an image for model prediction.
     
@@ -45,7 +68,7 @@ def preprocess_image(image_path: str) -> tuple:
     original_img = img_array.astype(np.uint8)
     
     # Preprocess for model (ImageNet normalization)
-    img_array = preprocess_input(img_array)
+    img_array = preprocess_fn(img_array)
     
     # Add batch dimension
     img_array = np.expand_dims(img_array, axis=0)
@@ -53,7 +76,7 @@ def preprocess_image(image_path: str) -> tuple:
     return img_array, original_img
 
 
-def predict_image(model: keras.Model, image_path: str) -> dict:
+def predict_image(model: keras.Model, image_path: str, preprocess_fn) -> dict:
     """
     Predict class probabilities for an image.
     
@@ -61,7 +84,7 @@ def predict_image(model: keras.Model, image_path: str) -> dict:
         Dictionary with prediction results
     """
     # Preprocess image
-    img_array, _ = preprocess_image(image_path)
+    img_array, _ = preprocess_image(image_path, preprocess_fn)
     
     # Predict
     predictions = model.predict(img_array, verbose=0)
@@ -88,7 +111,8 @@ def save_gradcam_image(
     model: keras.Model,
     image_path: str,
     output_path: str,
-    pred_idx: int
+    pred_idx: int,
+    preprocess_fn,
 ) -> str:
     """
     Generate and save Grad-CAM visualization.
@@ -97,7 +121,7 @@ def save_gradcam_image(
         Path to saved Grad-CAM image
     """
     # Preprocess image
-    img_array, original_img = preprocess_image(image_path)
+    img_array, original_img = preprocess_image(image_path, preprocess_fn)
     
     # Generate Grad-CAM visualization
     try:
@@ -144,8 +168,15 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="./model/model.h5",
+        default="./model/resnet50_model.h5",
         help="Path to trained model file"
+    )
+    parser.add_argument(
+        "--model-type",
+        type=str,
+        default="auto",
+        choices=["auto", "resnet50", "mobilenetv2"],
+        help="Model architecture to select preprocessing (default: auto detect from path)."
     )
     parser.add_argument(
         "--gradcam",
@@ -176,12 +207,13 @@ def main():
         sys.exit(1)
     
     try:
+        preprocess_fn, resolved_type = resolve_preprocess(args.model_type, str(model_path))
         # Load model with compile=False to avoid needing the custom loss function
         # For inference, we don't need the loss function - model.predict() works without it
         model = keras.models.load_model(str(model_path), compile=False)
         
         # Predict
-        results, pred_idx = predict_image(model, str(image_path))
+        results, pred_idx = predict_image(model, str(image_path), preprocess_fn)
         
         # Generate Grad-CAM if requested
         if args.gradcam.lower() == "true":
@@ -195,7 +227,8 @@ def main():
                 model,
                 str(image_path),
                 str(gradcam_path),
-                pred_idx
+                pred_idx,
+                preprocess_fn
             )
             
             if saved_path:

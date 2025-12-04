@@ -12,6 +12,45 @@ export async function POST(request: NextRequest) {
     // Parse form data
     const formData = await request.formData();
     const file = formData.get("file") as File;
+    const requestedModel =
+      ((formData.get("model") as string | null)?.toLowerCase() as
+        | "resnet50"
+        | "mobilenetv2"
+        | null) ?? "resnet50";
+
+    const MODEL_CONFIG: Record<
+      "resnet50" | "mobilenetv2",
+      {
+        modelPath: string;
+        trainScriptPath: string;
+        supportsDownload: boolean;
+        legacyPaths?: string[];
+        modelType: "resnet50" | "mobilenetv2";
+      }
+    > = {
+      resnet50: {
+        modelPath: join(process.cwd(), "model", "resnet50_model.h5"),
+        trainScriptPath: join(process.cwd(), "ml", "train_resnet50.py"),
+        supportsDownload: true,
+        legacyPaths: [join(process.cwd(), "model", "model.h5")],
+        modelType: "resnet50",
+      },
+      mobilenetv2: {
+        modelPath: join(process.cwd(), "model", "mobilenetv2_model.h5"),
+        trainScriptPath: join(process.cwd(), "ml", "train_mobilenetv2.py"),
+        supportsDownload: false,
+        modelType: "mobilenetv2",
+      },
+    };
+
+    const modelKey = MODEL_CONFIG[requestedModel]
+      ? requestedModel
+      : "resnet50";
+    const modelPaths = MODEL_CONFIG[modelKey];
+    const resolvedModelPath =
+      [modelPaths.modelPath, ...(modelPaths.legacyPaths ?? [])].find((p) =>
+        existsSync(p)
+      ) ?? modelPaths.modelPath;
 
     if (!file) {
       return NextResponse.json(
@@ -30,18 +69,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if model exists
-    const modelPath = join(process.cwd(), "model", "model.h5");
-    if (!existsSync(modelPath)) {
+    if (!existsSync(resolvedModelPath)) {
       // Try to download model if MODEL_URL is set
       const modelUrl = process.env.MODEL_URL;
       const { getTrainingStatus, setTrainingStatus } = await import("../../../lib/training-status");
-      const status = getTrainingStatus();
+      const status = getTrainingStatus(modelKey);
       
-      if (modelUrl && !status.isTraining) {
+      if (modelUrl && !status.isTraining && modelPaths.supportsDownload) {
         // Try downloading the model
         try {
           
-          setTrainingStatus({
+          setTrainingStatus(modelKey, {
             isTraining: true,
             progress: 0,
             message: "Downloading pre-trained model...",
@@ -58,7 +96,8 @@ export async function POST(request: NextRequest) {
           
           downloadProcess.on("exit", async (code) => {
             if (code === 0 && existsSync(modelPath)) {
-              setTrainingStatus({
+              const modelPath = modelPaths.modelPath;
+              setTrainingStatus(modelKey, {
                 isTraining: false,
                 progress: 100,
                 message: "Model downloaded successfully!",
@@ -80,21 +119,20 @@ export async function POST(request: NextRequest) {
       }
       
       async function startTrainingFallback() {
-        const currentStatus = getTrainingStatus();
+        const currentStatus = getTrainingStatus(modelKey);
         
         if (!currentStatus.isTraining) {
           try {
-            const trainScriptPath = join(process.cwd(), "ml", "train_model.py");
             const pythonCmd = process.platform === "win32" ? "python" : "python3";
             
-            setTrainingStatus({
+            setTrainingStatus(modelKey, {
               isTraining: true,
               progress: 0,
               message: "Training started automatically. Will stop at 95% validation accuracy...",
               error: null,
             });
             
-            const trainProcess = spawn(pythonCmd, [trainScriptPath], {
+            const trainProcess = spawn(pythonCmd, [modelPaths.trainScriptPath], {
               detached: true,
               stdio: "ignore",
             });
@@ -103,14 +141,14 @@ export async function POST(request: NextRequest) {
             
             trainProcess.on("exit", (code) => {
               if (code === 0) {
-                setTrainingStatus({
+                setTrainingStatus(modelKey, {
                   isTraining: false,
                   progress: 100,
                   message: "Training completed successfully! (Stopped at 95% validation accuracy)",
                   error: null,
                 });
               } else {
-                setTrainingStatus({
+                setTrainingStatus(modelKey, {
                   isTraining: false,
                   progress: 0,
                   message: "Training failed",
@@ -130,7 +168,7 @@ export async function POST(request: NextRequest) {
             ? "Model not found. Downloading pre-trained model..." 
             : "Model not found. Training has been started automatically. Training will stop when validation accuracy reaches 95% (typically 5-15 minutes).",
           training: true,
-          status: getTrainingStatus(),
+          status: getTrainingStatus(modelKey),
         },
         { status: 503 } // Service Unavailable
       );
@@ -150,7 +188,7 @@ export async function POST(request: NextRequest) {
 
     // Prepare Python script path
     const predictScriptPath = join(process.cwd(), "ml", "predict.py");
-    const modelPathArg = join(process.cwd(), "model", "model.h5");
+    const modelPathArg = resolvedModelPath;
 
     // Call Python predict script
     // Try python3 first, fallback to python
@@ -163,6 +201,8 @@ export async function POST(request: NextRequest) {
         tempFilePath,
         "--model",
         modelPathArg,
+        "--model-type",
+        modelPaths.modelType,
         "--gradcam",
         "true",
       ]);

@@ -7,11 +7,41 @@ import { getTrainingStatus, setTrainingStatus } from "../../../lib/training-stat
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes for starting training
 
-export async function POST() {
+type ModelKey = "resnet50" | "mobilenetv2";
+
+const MODEL_CONFIG: Record<
+  ModelKey,
+  { modelPath: string; trainScriptPath: string; legacyPaths?: string[] }
+> = {
+  resnet50: {
+    modelPath: join(process.cwd(), "model", "resnet50_model.h5"),
+    legacyPaths: [join(process.cwd(), "model", "model.h5")],
+    trainScriptPath: join(process.cwd(), "ml", "train_resnet50.py"),
+  },
+  mobilenetv2: {
+    modelPath: join(process.cwd(), "model", "mobilenetv2_model.h5"),
+    trainScriptPath: join(process.cwd(), "ml", "train_mobilenetv2.py"),
+  },
+};
+
+export async function POST(req: Request) {
   try {
+    const body = await req.json().catch(() => ({}));
+    const model = (body?.model as ModelKey) ?? "resnet50";
+    const config = MODEL_CONFIG[model];
+
+    if (!config) {
+      return NextResponse.json(
+        { success: false, message: "Unsupported model selection." },
+        { status: 400 }
+      );
+    }
+
     // Check if model already exists
-    const modelPath = join(process.cwd(), "model", "model.h5");
-    if (existsSync(modelPath)) {
+    const existingPath = [config.modelPath, ...(config.legacyPaths ?? [])].find((p) =>
+      existsSync(p)
+    );
+    if (existingPath) {
       return NextResponse.json({
         success: true,
         message: "Model already exists",
@@ -19,7 +49,7 @@ export async function POST() {
     }
 
     // Check if training is already in progress
-    const status = getTrainingStatus();
+    const status = getTrainingStatus(model);
     if (status.isTraining) {
       return NextResponse.json({
         success: true,
@@ -29,18 +59,17 @@ export async function POST() {
     }
 
     // Start training in background
-    const trainScriptPath = join(process.cwd(), "ml", "train_model.py");
     const pythonCmd = process.platform === "win32" ? "python" : "python3";
 
-    setTrainingStatus({
+    setTrainingStatus(model, {
       isTraining: true,
       progress: 0,
-      message: "Training started. Will stop automatically at 95% validation accuracy...",
+      message: `Training ${model} started. Will stop automatically at 95% validation accuracy...`,
       error: null,
     });
 
     // Spawn training process (don't wait for it)
-    const trainProcess = spawn(pythonCmd, [trainScriptPath], {
+    const trainProcess = spawn(pythonCmd, [config.trainScriptPath], {
       detached: true,
       stdio: "ignore",
     });
@@ -50,7 +79,7 @@ export async function POST() {
 
     // Monitor training process
     trainProcess.on("error", (error) => {
-      setTrainingStatus({
+      setTrainingStatus(model, {
         isTraining: false,
         progress: 0,
         message: "Training failed to start",
@@ -60,14 +89,14 @@ export async function POST() {
 
     trainProcess.on("exit", (code) => {
       if (code === 0) {
-        setTrainingStatus({
+        setTrainingStatus(model, {
           isTraining: false,
           progress: 100,
           message: "Training completed successfully! (Stopped at 95% validation accuracy)",
           error: null,
         });
       } else {
-        setTrainingStatus({
+        setTrainingStatus(model, {
           isTraining: false,
           progress: 0,
           message: "Training failed",

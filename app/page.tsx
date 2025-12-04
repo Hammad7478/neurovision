@@ -37,6 +37,7 @@ interface PredictionResult {
 }
 
 interface TrainingStatus {
+  model?: string;
   modelExists: boolean;
   isTraining: boolean;
   progress: number;
@@ -64,6 +65,14 @@ interface ModelMetrics {
 }
 
 export default function Home() {
+  type ModelKey = "resnet50" | "mobilenetv2";
+
+  const modelOptions: { value: ModelKey; label: string; helper: string }[] = [
+    { value: "resnet50", label: "ResNet-50 (high accuracy)", helper: "Heavier, best overall accuracy" },
+    { value: "mobilenetv2", label: "MobileNetV2 (lightweight)", helper: "Faster, good for constrained devices" },
+  ];
+
+  const [selectedModel, setSelectedModel] = useState<ModelKey>("resnet50");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,21 +82,30 @@ export default function Home() {
   const [checkingTraining, setCheckingTraining] = useState(true);
 
   const [metrics, setMetrics] = useState<ModelMetrics | null>(null);
+  const [metricsModel, setMetricsModel] = useState<ModelKey>("resnet50");
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [showMetrics, setShowMetrics] = useState(false);
 
-  const loadMetrics = useCallback(async () => {
+  const loadMetrics = useCallback(async (model: ModelKey) => {
     try {
       setMetricsLoading(true);
       setMetricsError(null);
-      const response = await fetch("/api/model-metrics", { cache: "no-store" });
+      const response = await fetch(`/api/model-metrics?model=${model}`, { cache: "no-store" });
       if (!response.ok) {
+        if (response.status === 404) {
+          // Metrics not available yet (model not trained)
+          setMetrics(null);
+          setMetricsModel(model);
+          setMetricsError(null);
+          return;
+        }
         const data = await response.json().catch(() => ({}));
         throw new Error(data?.error || "Failed to load model metrics.");
       }
       const data: ModelMetrics = await response.json();
       setMetrics(data);
+      setMetricsModel(model);
     } catch (err) {
       console.error("Failed to load model metrics:", err);
       setMetricsError(
@@ -102,7 +120,8 @@ export default function Home() {
   useEffect(() => {
     const checkTrainingStatus = async () => {
       try {
-        const response = await fetch("/api/train-status");
+        setCheckingTraining(true);
+        const response = await fetch(`/api/train-status?model=${selectedModel}`);
         const status: TrainingStatus = await response.json();
         setTrainingStatus(status);
         setCheckingTraining(false);
@@ -115,11 +134,11 @@ export default function Home() {
     checkTrainingStatus();
     const interval = setInterval(checkTrainingStatus, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedModel]);
 
   useEffect(() => {
-    loadMetrics();
-  }, [loadMetrics]);
+    loadMetrics(selectedModel);
+  }, [loadMetrics, selectedModel]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -162,6 +181,14 @@ export default function Home() {
     e.preventDefault();
   };
 
+  const handleModelChange = (value: ModelKey) => {
+    setSelectedModel(value);
+    setTrainingStatus(null);
+    setMetrics(null);
+    setMetricsError(null);
+    setResult(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
@@ -172,6 +199,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("model", selectedModel);
 
       const response = await fetch("/api/predict", {
         method: "POST",
@@ -192,7 +220,7 @@ export default function Home() {
       }
 
       setResult(data);
-      await loadMetrics();
+      await loadMetrics(selectedModel);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -215,33 +243,42 @@ export default function Home() {
   const formatMetricPercentage = (value?: number) =>
     value === undefined || Number.isNaN(value) ? "—" : `${(value * 100).toFixed(1)}%`;
 
+  const selectedModelLabel = useMemo(
+    () =>
+      modelOptions.find((opt) => opt.value === selectedModel)?.label ??
+      selectedModel,
+    [modelOptions, selectedModel]
+  );
+
+  const activeMetrics = metricsModel === selectedModel ? metrics : null;
+
   const summaryCards = useMemo(
     () =>
-      metrics
+      activeMetrics
         ? [
             {
               label: "Accuracy",
-              value: metrics.accuracy,
+              value: activeMetrics.accuracy,
               description: "Overall proportion of MRI scans classified correctly.",
             },
             {
               label: "Precision",
-              value: metrics.precision,
+              value: activeMetrics.precision,
               description: "How often predicted tumors were actually correct.",
             },
             {
               label: "Recall",
-              value: metrics.recall,
+              value: activeMetrics.recall,
               description: "How many tumors present in MRIs the model found.",
             },
             {
               label: "F1 Score",
-              value: metrics.f1_score ?? metrics.macro_f1,
+              value: activeMetrics.f1_score ?? activeMetrics.macro_f1,
               description: "Balance of precision and recall across all classes.",
             },
           ]
         : [],
-    [metrics]
+    [activeMetrics]
   );
 
   const classLabels = useMemo(
@@ -249,7 +286,7 @@ export default function Home() {
     []
   );
 
-  const confusionMatrix = metrics?.confusion_matrix ?? [];
+  const confusionMatrix = activeMetrics?.confusion_matrix ?? [];
 
   const predictedClassIndex = useMemo(() => {
     if (!result) return -1;
@@ -272,8 +309,8 @@ export default function Home() {
   }, [confusionMatrix]);
 
   const accuracyChartData = useMemo(() => {
-    const train = metrics?.train_accuracy ?? [];
-    const val = metrics?.val_accuracy ?? [];
+    const train = activeMetrics?.train_accuracy ?? [];
+    const val = activeMetrics?.val_accuracy ?? [];
     const length = Math.max(train.length, val.length);
     if (length === 0) return null;
 
@@ -308,11 +345,11 @@ export default function Home() {
         },
       ],
     };
-  }, [metrics]);
+  }, [activeMetrics]);
 
   const lossChartData = useMemo(() => {
-    const train = metrics?.train_loss ?? [];
-    const val = metrics?.val_loss ?? [];
+    const train = activeMetrics?.train_loss ?? [];
+    const val = activeMetrics?.val_loss ?? [];
     const length = Math.max(train.length, val.length);
     if (length === 0) return null;
 
@@ -347,7 +384,7 @@ export default function Home() {
         },
       ],
     };
-  }, [metrics]);
+  }, [activeMetrics]);
 
   const lineChartOptions = useMemo(
     () => ({
@@ -402,11 +439,11 @@ export default function Home() {
     setShowMetrics((prev) => {
       const next = !prev;
       if (!prev && !metricsLoading) {
-        loadMetrics();
+        loadMetrics(selectedModel);
       }
       return next;
     });
-  }, [loadMetrics, metricsLoading]);
+  }, [loadMetrics, metricsLoading, selectedModel]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0B132B] text-[#E6F1FF]">
@@ -435,6 +472,33 @@ export default function Home() {
         {/* Upload Section */}
         <div className="rounded-2xl border border-white/10 bg-[#1C2541]/80 p-8 shadow-[0_30px_80px_-35px_rgba(9,20,45,0.9)] backdrop-blur-2xl">
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {modelOptions.map((opt) => {
+                const isActive = selectedModel === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => handleModelChange(opt.value)}
+                    className={`flex flex-col items-start rounded-xl border px-4 py-3 text-left transition-all duration-300 ${
+                      isActive
+                        ? "border-[#6FFFE9]/80 bg-[#0f1b36] shadow-[0_12px_35px_-18px_rgba(111,255,233,0.45)]"
+                        : "border-white/10 bg-white/5 hover:border-[#6FFFE9]/50 hover:-translate-y-0.5"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold text-[#E6F1FF]">
+                      {opt.label}
+                    </span>
+                    <span className="text-xs text-[#9AA9D8]">{opt.helper}</span>
+                    {isActive && (
+                      <span className="mt-2 rounded-md bg-[#6FFFE9]/15 px-2 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[#6FFFE9]">
+                        Active
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
             <div
               onDrop={handleDrop}
               onDragOver={handleDragOver}
@@ -544,7 +608,9 @@ export default function Home() {
               <div className="flex items-center space-x-3">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#6FFFE9] border-t-transparent"></div>
                 <div>
-                  <p className="font-medium tracking-wide">Training model in progress...</p>
+                  <p className="font-medium tracking-wide">
+                    Training {selectedModelLabel} in progress...
+                  </p>
                   <p className="mt-1 text-sm text-[#9AA9D8]">
                     {trainingStatus.message ||
                       "Training will stop automatically when validation accuracy reaches 95%. This typically takes 5-15 minutes. The page will automatically refresh when training completes."}
@@ -562,9 +628,9 @@ export default function Home() {
 
           {trainingStatus && !trainingStatus.isTraining && trainingStatus.modelExists && !result && (
             <div className="mt-5 rounded-2xl border border-[#6FFFE9]/30 bg-[#16324F]/75 p-4 text-[#E1FBFF] shadow-inner">
-              <p className="font-semibold tracking-wide text-[#6FFFE9]">Model is ready!</p>
+              <p className="font-semibold tracking-wide text-[#6FFFE9]">{selectedModelLabel} is ready!</p>
               <p className="mt-1 text-sm text-[#A8C6E7]">
-                Training completed (stopped at 95% validation accuracy). You can now upload an image to get predictions.
+                Training completed. You can now upload an image to get predictions.
               </p>
             </div>
           )}
@@ -658,7 +724,7 @@ export default function Home() {
           >
             <div>
               <h2 className="text-2xl font-semibold tracking-wide text-[#E6F1FF]">
-                Model Performance Metrics
+                {selectedModelLabel} Performance Metrics
               </h2>
               <p className="mt-1 text-sm text-[#9AA9D8]">
                 Explore how the model performed during training and evaluation (metrics update live as you train the model).
@@ -687,7 +753,7 @@ export default function Home() {
                 <div className="rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/30 px-4 py-3 text-sm text-red-700 dark:text-red-300">
                   {metricsError}
                 </div>
-              ) : metrics ? (
+              ) : activeMetrics ? (
                 <>
                   {summaryCards.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -800,13 +866,13 @@ export default function Home() {
                     </div>
                   )}
 
-                  {metrics.per_class_f1 && (
+                  {activeMetrics?.per_class_f1 && (
                     <div>
                   <h3 className="mb-4 text-lg font-semibold text-[#E6F1FF]">
                         Per-Class F1 Scores
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {Object.entries(metrics.per_class_f1).map(([cls, value]) => (
+                        {Object.entries(activeMetrics.per_class_f1).map(([cls, value]) => (
                           <div
                             key={`per-class-${cls}`}
                         className="rounded-2xl border border-white/10 bg-[#131F32]/80 p-4 shadow-[0_20px_45px_-25px_rgba(10,30,57,0.8)] transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_30px_60px_-28px_rgba(91,192,190,0.45)]"

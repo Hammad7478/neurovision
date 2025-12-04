@@ -1,5 +1,5 @@
 """
-Training script for NeuroVision MRI tumor classification model.
+Training script for NeuroVision MRI tumor classification using ResNet50.
 Uses transfer learning with ResNet50 to classify brain MRI images into:
 - glioma
 - meningioma
@@ -30,7 +30,7 @@ BATCH_SIZE = 32
 EPOCHS = 50
 DATA_DIR = Path("./data")
 MODEL_DIR = Path("./model")
-MODEL_PATH = MODEL_DIR / "model.h5"
+MODEL_PATH = MODEL_DIR / "resnet50_model.h5"
 CLASSES = ["glioma", "meningioma", "pituitary", "notumor"]
 NUM_CLASSES = len(CLASSES)
 
@@ -59,7 +59,7 @@ class StopAtValAccuracy(Callback):
         val_acc = logs.get("val_accuracy")
         
         if val_acc is not None and val_acc >= self.target:
-            print(f"\n✓ Validation accuracy ({val_acc:.4f}) reached target ({self.target:.4f})")
+            print(f"\nValidation accuracy ({val_acc:.4f}) reached target ({self.target:.4f})")
             print(f"Stopping training early at epoch {epoch + 1}")
             self.model.stop_training = True
             self.stopped_epoch = epoch + 1
@@ -442,7 +442,7 @@ def main():
     
     print(f"Model parameters: {model.count_params():,}")
     
-    metrics_logger = MetricsLoggerCallback(MODEL_DIR / "metrics.json")
+    metrics_logger = MetricsLoggerCallback(MODEL_DIR / "resnet50_metrics.json")
 
     # Callbacks
     # StopAtValAccuracy: Stops training when val_accuracy >= 0.95
@@ -585,13 +585,13 @@ def main():
         "per_class_f1": {cls: float(f1) for cls, f1 in zip(CLASSES, f1_per_class)}
     }
     
-    metrics_path = MODEL_DIR / "metrics.json"
+    metrics_path = MODEL_DIR / "resnet50_metrics.json"
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2)
     print(f"\nMetrics saved to {metrics_path}")
     
     # Plot and save confusion matrix
-    cm_path = MODEL_DIR / "confusion_matrix.png"
+    cm_path = MODEL_DIR / "resnet50_confusion_matrix.png"
     plot_confusion_matrix(cm, cm_path)
     print(f"Confusion matrix saved to {cm_path}")
     
@@ -604,7 +604,7 @@ def main():
     
     # Also save weights only as a backup (can be loaded into a model with standard loss)
     # Note: In Keras 3, weights files must end with .weights.h5
-    weights_path = MODEL_DIR / "model_weights.weights.h5"
+    weights_path = MODEL_DIR / "resnet50_weights.weights.h5"
     model.save_weights(str(weights_path))
     print(f"Weights also saved to {weights_path}")
     

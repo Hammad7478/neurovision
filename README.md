@@ -19,10 +19,10 @@ A single-app solution for brain MRI tumor classification using deep learning. Ne
    npm install
    ```
 
-2. **Train the model** (stops early at 95% validation accuracy):
+2. **Train the ResNet-50 model** (stops early at 95% validation accuracy):
 
    ```bash
-   python ml/train_model.py
+   python ml/train_resnet50.py
    ```
 
 3. **Start the development server:**
@@ -48,21 +48,21 @@ A single-app solution for brain MRI tumor classification using deep learning. Ne
 1. **Train the model once** (takes 10-30 minutes):
 
    ```bash
-   python3 ml/train_model.py
+   python3 ml/train_resnet50.py
    ```
 
-2. **The model is saved to `model/model.h5`** and persists on disk
+2. **The model is saved to `model/resnet50_model.h5`** and persists on disk
 
 3. **Use the model for predictions** - no need to retrain!
 
 ### Training the Model
 
-**Note**: You only need to train once! The model persists in `model/model.h5`.
+**Note**: You only need to train once! The model persists in `model/resnet50_model.h5`.
 
 #### Option 1: Manual Training
 
 ```bash
-python3 ml/train_model.py
+python3 ml/train_resnet50.py
 ```
 
 The training script will:
@@ -72,16 +72,21 @@ The training script will:
 - Apply data augmentation
 - Train a ResNet50-based model with transfer learning
 - **Stop automatically when validation accuracy reaches 95%** (early stopping)
-- Save the best model to `model/model.h5`
+- Save the best model to `model/resnet50_model.h5`
 - Generate metrics and confusion matrix
 
 **Early Stopping**: The training process uses a custom callback that automatically stops training when validation accuracy reaches 95% (`val_accuracy >= 0.95`). This prevents overtraining and reduces training time. The model will still save the best weights based on validation accuracy, and all metrics (precision, recall, F1 scores, confusion matrix) are computed and saved after training completes.
 
-**Training Outputs:**
+**Training Outputs (ResNet-50):**
 
-- `model/model.h5` - Trained model file (~100-200MB)
-- `model/metrics.json` - Classification metrics (F1 scores, precision, recall)
-- `model/confusion_matrix.png` - Confusion matrix visualization
+- `model/resnet50_model.h5` - Trained model file (~100-200MB)
+- `model/resnet50_metrics.json` - Classification metrics (F1 scores, precision, recall)
+- `model/resnet50_confusion_matrix.png` - Confusion matrix visualization
+
+**MobileNetV2 baseline:**
+
+- Train with `python3 ml/train_mobilenetv2.py`
+- Outputs: `model/mobilenetv2_model.h5`, `model/mobilenetv2_metrics.json`, `model/mobilenetv2_confusion_matrix.png`
 
 ## Model Architecture
 

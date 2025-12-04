@@ -23,7 +23,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 
-# Configuration mirrors train_model.py
+# Configuration mirrors train_resnet50.py
 CLASSES = ["glioma", "meningioma", "pituitary", "notumor"]
 IMAGE_SIZE = (224, 224)
 MODEL_DIR = Path("./model")
