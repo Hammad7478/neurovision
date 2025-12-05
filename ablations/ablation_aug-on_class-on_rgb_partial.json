@@ -1,0 +1,35 @@
+{
+  "config": {
+    "augmentation": "on",
+    "class_weights": "on",
+    "color_mode": "rgb",
+    "finetune_mode": "partial"
+  },
+  "config_name": "aug-on_class-on_rgb_partial",
+  "metrics": {
+    "accuracy": 0.8617672790901137,
+    "precision": 0.8649420379584488,
+    "recall": 0.8539531162839985,
+    "f1_score": 0.8546384878534137,
+    "per_class_f1": {
+      "glioma": 0.8290598290598291,
+      "meningioma": 0.746268656716418,
+      "pituitary": 0.8969889064976229,
+      "notumor": 0.946236559139785
+    }
+  },
+  "training_history": {
+    "train_accuracy": [
+      0.7266725301742554
+    ],
+    "val_accuracy": [
+      0.8607142567634583
+    ],
+    "train_loss": [
+      0.7518852353096008
+    ],
+    "val_loss": [
+      0.3903830051422119
+    ]
+  }
+}
