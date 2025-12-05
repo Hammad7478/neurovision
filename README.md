@@ -19,7 +19,10 @@ A single-app solution for brain MRI tumor classification using deep learning. Ne
    npm install
    ```
 
-2. **Train the ResNet-50 model** (stops early at 95% validation accuracy):
+2. **Train the ResNet-50 model**
+
+   - Default: up to 25 epochs, early stop when `val_accuracy >= 0.95`
+   - CLI flags (see below) let you change augmentation, class weights, color mode, fine-tuning, epochs, and target accuracy.
 
    ```bash
    python ml/train_resnet50.py
@@ -45,64 +48,137 @@ A single-app solution for brain MRI tumor classification using deep learning. Ne
 
 **Train once locally, then reuse the model:**
 
-1. **Train the model once** (takes 10-30 minutes):
+1. **Train the model once** (default: 25 epochs cap, early stop at 0.95):
 
    ```bash
-   python3 ml/train_resnet50.py
+   python ml/train_resnet50.py
    ```
 
-2. **The model is saved to `model/resnet50_model.h5`** and persists on disk
+2. **The model is saved to `model/resnet50_model.h5`** (or with suffix if specified) and persists on disk.
 
-3. **Use the model for predictions** - no need to retrain!
+3. **Use the model for predictions** - no need to retrain unless you want to run ablations.
 
-### Training the Model
+### Training the Model (ResNet-50)
 
-**Note**: You only need to train once! The model persists in `model/resnet50_model.h5`.
+**Note**: Default behavior matches the main model in the report (25-epoch cap, early stop at 0.95). You can override with CLI flags for ablations.
 
-#### Option 1: Manual Training
+#### Command
 
 ```bash
-python3 ml/train_resnet50.py
+python ml/train_resnet50.py [--augmentation {on,off}] [--class-weights {on,off}] \
+  [--color-mode {rgb,grayscale}] [--finetune-mode {partial,frozen}] \
+  [--epochs N] [--target-accuracy X.XX] \
+  [--data-dir ./data] [--model-dir ./model] \
+  [--batch-size 32] [--output-suffix SUFFIX]
 ```
 
-The training script will:
+#### What it does
 
-- Load images from `data/` directory
-- Split data into training and validation sets (80/20)
-- Apply data augmentation
-- Train a ResNet50-based model with transfer learning
-- **Stop automatically when validation accuracy reaches 95%** (early stopping)
-- Save the best model to `model/resnet50_model.h5`
-- Generate metrics and confusion matrix
+- Loads images from `data/<class>` directories.
+- Splits into train/validation (80/20 stratified) in code.
+- Applies augmentation (flip/rotation/brightness/contrast) when `--augmentation on`.
+- Supports RGB or grayscale inputs (`--color-mode`).
+- Supports weighted or unweighted loss (`--class-weights`).
+- Fine-tuning modes: `partial` (two-phase; unfreeze top ~30 layers) or `frozen` (head only).
+- Early stopping: custom `StopAtValAccuracy` at `--target-accuracy` (default 0.95) plus Keras `EarlyStopping` (patience 10).
+- Saves best model and metrics to `model/`, optionally suffixed.
 
-**Early Stopping**: The training process uses a custom callback that automatically stops training when validation accuracy reaches 95% (`val_accuracy >= 0.95`). This prevents overtraining and reduces training time. The model will still save the best weights based on validation accuracy, and all metrics (precision, recall, F1 scores, confusion matrix) are computed and saved after training completes.
+#### Key outputs (suffix honored if provided)
 
-**Training Outputs (ResNet-50):**
+- `model/resnet50_model[_{suffix}].h5`
+- `model/resnet50_metrics[_{suffix}].json`
+- `model/resnet50_confusion_matrix[_{suffix}].png`
+- `model/resnet50_weights.weights.h5`
 
-- `model/resnet50_model.h5` - Trained model file (~100-200MB)
-- `model/resnet50_metrics.json` - Classification metrics (F1 scores, precision, recall)
-- `model/resnet50_confusion_matrix.png` - Confusion matrix visualization
+### Ablation sweeps (batch runner)
 
-**MobileNetV2 baseline:**
+We provide a helper to run the key ablation configs quickly (8-epoch cap, 0.85 target accuracy by default):
 
-- Train with `python3 ml/train_mobilenetv2.py`
+```bash
+python -m ml.run_ablation_sweeps
+```
+
+It runs:
+
+- Baseline: aug on, class weights on, RGB, partial FT
+- No augmentation
+- No class weights
+- Grayscale inputs
+- Frozen backbone
+
+Outputs per run:
+
+- `model/resnet50_model_{config}.h5`
+- `model/resnet50_metrics_{config}.json`
+- `model/resnet50_confusion_matrix_{config}.png`
+  Summary:
+- `ablations/ablation_*.json` per run
+- `ablations/ablation_summary.json`
+
+### MobileNetV2 baseline
+
+```bash
+python ml/train_mobilenetv2.py
+```
+
+- Uses ImageNet-pretrained MobileNetV2, classifier head for 4 classes.
+- Default: 80/20 split, augmentation on, class weights on.
 - Outputs: `model/mobilenetv2_model.h5`, `model/mobilenetv2_metrics.json`, `model/mobilenetv2_confusion_matrix.png`
 
-## Model Architecture
+### Logistic regression baseline
 
-The model uses **transfer learning** with ResNet50 as the base architecture:
+```bash
+python ml/baseline_logreg.py
+```
 
-- **Base Model**: ResNet50 (pre-trained on ImageNet)
-- **Input Size**: 224×224 pixels
-- **Output**: 4 classes (glioma, meningioma, pituitary, notumor)
-- **Training Strategy**:
-  1. Phase 1: Freeze base model, train classifier head (up to 20 epochs)
-  2. Phase 2: Unfreeze top layers, fine-tune with lower learning rate (up to 30 epochs)
-- **Early Stopping**: Training stops automatically when validation accuracy reaches 95% (`val_accuracy >= 0.95`)
-- **Callbacks**:
-  - Custom `StopAtValAccuracy` callback: Stops at 95% validation accuracy
-  - `EarlyStopping`: Safety net - stops if validation doesn't improve for 10 epochs
-  - `ModelCheckpoint`: Saves the best model based on validation accuracy
+- Flattens grayscale images, trains a linear classifier.
+- Outputs metrics to stdout/logs (no deep model files).
+
+## Model Architecture (ResNet-50)
+
+- Base: ResNet50 (ImageNet pretrained), input 224×224×3.
+- Head: GAP → Dense 512 (ReLU) → Dropout 0.5 → Dense 256 (ReLU) → Dropout 0.3 → Dense 4 (softmax) → Dropout 0.2 after 256.
+- Two-phase fine-tuning (when `--finetune-mode partial`): Phase 1 frozen base; Phase 2 unfreeze top ~30 layers, lower LR.
+- Loss: categorical cross-entropy (weighted or unweighted).
+- Optimizer: Adam (default 0.001/0.0001 across phases; 0.0001 in default single compile).
+- Early stopping: target accuracy (default 0.95) + patience 10 safety net.
+
+## Frontend / API
+
+- Next.js 14 + React 18 + Tailwind.
+- UI in `app/page.tsx` with model selector (ResNet-50, MobileNetV2), upload, probabilities, Grad-CAM image, metrics charts.
+- API routes:
+  - `POST /api/predict` → calls Python prediction script, returns class probabilities and optional Grad-CAM.
+  - `GET /api/serve-gradcam/[filename]` → serves Grad-CAM images.
+  - Training/metrics endpoints to poll/start training (see `app/api/*`).
+
+## Data layout
+
+- Place data under `data/<class>` with folders: `glioma`, `meningioma`, `pituitary`, `notumor`.
+- Scripts perform an in-code 80/20 stratified split for train/validation.
+
+## Flags reference (ml/train_resnet50.py)
+
+- `--augmentation {on,off}` (default on)
+- `--class-weights {on,off}` (default on)
+- `--color-mode {rgb,grayscale}` (default rgb)
+- `--finetune-mode {partial,frozen}` (default partial)
+- `--epochs N` (default 25)
+- `--target-accuracy X.XX` (default 0.95)
+- `--data-dir PATH` (default ./data)
+- `--model-dir PATH` (default ./model)
+- `--batch-size N` (default 32)
+- `--output-suffix SUFFIX` (adds `_SUFFIX` to outputs)
+
+## Typical validation results (8-epoch ablation, target 0.85)
+
+- ResNet-50 grayscale: ~90.0% val accuracy
+- Frozen backbone: ~88.6% val accuracy
+- No augmentation: ~88.5% val accuracy
+- No class weights: ~86.8% val accuracy
+- Baseline config (aug on, class weights on, RGB, partial FT): ~86.2% val accuracy
+
+Earlier higher numbers (95%+) were from longer full-length training runs (25-epoch cap, target 0.95).
 
 ## API Endpoints
 
