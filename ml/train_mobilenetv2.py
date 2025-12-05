@@ -144,6 +144,11 @@ def create_data_generators(
             img_tensor = tf.expand_dims(img_array, 0)
             if tf.random.uniform([]) > 0.5:
                 img_tensor = tf.image.flip_left_right(img_tensor)
+            rotation_layer = layers.RandomRotation(
+                factor=(-0.083, 0.083),
+                fill_mode="reflect"
+            )
+            img_tensor = rotation_layer(img_tensor, training=True)
             img_tensor = tf.image.random_brightness(img_tensor, max_delta=0.2)
             img_tensor = tf.image.random_contrast(img_tensor, lower=0.8, upper=1.2)
             img_array = img_tensor[0].numpy()

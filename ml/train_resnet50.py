@@ -27,7 +27,7 @@ import shutil
 # Configuration
 IMAGE_SIZE = (224, 224)
 BATCH_SIZE = 32
-EPOCHS = 50
+EPOCHS = 25
 DATA_DIR = Path("./data")
 MODEL_DIR = Path("./model")
 MODEL_PATH = MODEL_DIR / "resnet50_model.h5"
@@ -254,6 +254,13 @@ def create_data_generators(train_paths, train_labels, val_paths, val_labels):
             # Random horizontal flip (50% chance)
             if tf.random.uniform([]) > 0.5:
                 img_tensor = tf.image.flip_left_right(img_tensor)
+
+            # Random small rotation (~±15 degrees)
+            rotation_layer = layers.RandomRotation(
+                factor=(-0.083, 0.083),
+                fill_mode="reflect"
+            )
+            img_tensor = rotation_layer(img_tensor, training=True)
             
             # Random brightness adjustment
             img_tensor = tf.image.random_brightness(img_tensor, max_delta=0.2)
